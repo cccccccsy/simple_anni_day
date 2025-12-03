@@ -1,0 +1,74 @@
+.app {
+  min-height: 100vh;
+  background: var(--color-background);
+}
+
+.main-content {
+  min-height: calc(100vh - 120px);
+}
+
+.notification-banner {
+  max-width: 1200px;
+  margin: 0 auto;
+  margin-top: var(--spacing-lg);
+  padding: 0 var(--spacing-md);
+}
+
+.notification-banner-content {
+  background: var(--color-accent);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  box-shadow: var(--shadow-md);
+}
+
+.notification-banner-warning .notification-banner-content {
+  background: #fff3cd;
+  border-color: #ffc107;
+}
+
+.notification-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.notification-text {
+  flex: 1;
+}
+
+.notification-text strong {
+  display: block;
+  font-size: 1.1rem;
+  color: var(--color-text);
+  margin-bottom: var(--spacing-xs);
+}
+
+.notification-text p {
+  margin: 0;
+  color: var(--color-text);
+  opacity: 0.8;
+  font-size: 0.95rem;
+}
+
+.btn-sm {
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  .notification-banner-content {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .notification-text strong {
+    font-size: 1rem;
+  }
+
+  .notification-text p {
+    font-size: 0.875rem;
+  }
+}
