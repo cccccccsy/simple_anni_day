@@ -42,6 +42,7 @@
 }
 
 .btn-lg {
-  padding: var(--spacing-md) var(--spacing-xl);
+  padding: var(--spacing-lg) var(--spacing-2xl);
   font-size: 1.1rem;
+  min-width: 200px;
 }

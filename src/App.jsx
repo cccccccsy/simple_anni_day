@@ -3,8 +3,8 @@ import Header from './components/Header';
 import AnniversaryList from './components/AnniversaryList';
 import AnniversaryForm from './components/AnniversaryForm';
 import ConfirmDialog from './components/ConfirmDialog';
-import { useLocalStorage } from './hooks/useLocalStorage';
-import { useNotifications } from './hooks/useNotifications';
+import useLocalStorage from './hooks/useLocalStorage';
+import useNotifications from './hooks/useNotifications';
 import './App.css';
 
 function App() {
@@ -18,9 +18,9 @@ function App() {
   const {
     permission,
     requestPermission,
-    checkNotifications,
+    checkAndFire,
     isGranted
-  } = useNotifications();
+  } = useNotifications(anniversaries);
 
   // Request notification permission on first load if not set
   React.useEffect(() => {
@@ -36,9 +36,9 @@ function App() {
   // Check notifications periodically
   React.useEffect(() => {
     if (isGranted) {
-      checkNotifications(anniversaries);
+      checkAndFire();
     }
-  }, [anniversaries, isGranted, checkNotifications]);
+  }, [isGranted, checkAndFire]);
 
   // Handlers
   const handleAddClick = () => {
