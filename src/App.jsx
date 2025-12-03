@@ -1,18 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import AnniversaryList from './components/AnniversaryList';
 import AnniversaryForm from './components/AnniversaryForm';
 import ConfirmDialog from './components/ConfirmDialog';
+import RecycleBin from './components/RecycleBin';
 import useLocalStorage from './hooks/useLocalStorage';
 import useNotifications from './hooks/useNotifications';
+import {
+  moveToTrash,
+  restoreFromTrash,
+  permanentDelete,
+  loadTrash,
+  clearTrash
+} from './services/StorageService';
 import './App.css';
 
 function App() {
   // State management
   const [anniversaries, setAnniversaries] = useLocalStorage('anniversaries', []);
+  const [trash, setTrash] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingAnniversary, setEditingAnniversary] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [showRecycleBin, setShowRecycleBin] = useState(false);
+  const [permanentDeleteConfirm, setPermanentDeleteConfirm] = useState(null);
 
   // Notifications
   const {
@@ -34,11 +45,16 @@ function App() {
   }, [permission, anniversaries.length, requestPermission]);
 
   // Check notifications periodically
-  React.useEffect(() => {
+  useEffect(() => {
     if (isGranted) {
       checkAndFire();
     }
   }, [isGranted, checkAndFire]);
+
+  // Load trash on mount
+  useEffect(() => {
+    setTrash(loadTrash());
+  }, []);
 
   // Handlers
   const handleAddClick = () => {
@@ -57,11 +73,15 @@ function App() {
 
   const confirmDelete = () => {
     if (deleteConfirm) {
-      const updatedAnniversaries = anniversaries.filter(
-        a => a.id !== deleteConfirm.id
-      );
-      setAnniversaries(updatedAnniversaries);
-      setDeleteConfirm(null);
+      try {
+        const result = moveToTrash(deleteConfirm.id);
+        setAnniversaries(result.anniversaries);
+        setTrash(result.trash);
+        setDeleteConfirm(null);
+      } catch (error) {
+        console.error('Error moving to trash:', error);
+        alert('Failed to delete anniversary. Please try again.');
+      }
     }
   };
 
@@ -86,9 +106,60 @@ function App() {
     setEditingAnniversary(null);
   };
 
+  // Recycle bin handlers
+  const handleTrashClick = () => {
+    setShowRecycleBin(true);
+  };
+
+  const handleRestore = (item) => {
+    try {
+      const result = restoreFromTrash(item.id);
+      setAnniversaries(result.anniversaries);
+      setTrash(result.trash);
+    } catch (error) {
+      console.error('Error restoring from trash:', error);
+      alert('Failed to restore anniversary. Please try again.');
+    }
+  };
+
+  const handlePermanentDelete = (item) => {
+    setPermanentDeleteConfirm(item);
+  };
+
+  const confirmPermanentDelete = () => {
+    if (permanentDeleteConfirm) {
+      try {
+        const updatedTrash = permanentDelete(permanentDeleteConfirm.id);
+        setTrash(updatedTrash);
+        setPermanentDeleteConfirm(null);
+      } catch (error) {
+        console.error('Error permanently deleting:', error);
+        alert('Failed to permanently delete anniversary. Please try again.');
+      }
+    }
+  };
+
+  const handleClearTrash = () => {
+    if (trash.length === 0) return;
+
+    if (window.confirm(`Are you sure you want to permanently delete all ${trash.length} items from the recycle bin? This action cannot be undone.`)) {
+      try {
+        clearTrash();
+        setTrash([]);
+      } catch (error) {
+        console.error('Error clearing trash:', error);
+        alert('Failed to clear recycle bin. Please try again.');
+      }
+    }
+  };
+
   return (
     <div className="app">
-      <Header onAddClick={handleAddClick} />
+      <Header
+        onAddClick={handleAddClick}
+        onTrashClick={handleTrashClick}
+        trashCount={trash.length}
+      />
 
       <main className="main-content">
         {/* Notification Banner */}
@@ -139,10 +210,31 @@ function App() {
       {/* Delete Confirmation Dialog */}
       {deleteConfirm && (
         <ConfirmDialog
-          title="Delete Anniversary?"
-          message={`Are you sure you want to delete "${deleteConfirm.title}"? This action cannot be undone.`}
+          title="Move to Recycle Bin?"
+          message={`Are you sure you want to move "${deleteConfirm.title}" to the recycle bin? You can restore it later.`}
           onConfirm={confirmDelete}
           onCancel={() => setDeleteConfirm(null)}
+        />
+      )}
+
+      {/* Permanent Delete Confirmation Dialog */}
+      {permanentDeleteConfirm && (
+        <ConfirmDialog
+          title="Permanently Delete?"
+          message={`Are you sure you want to permanently delete "${permanentDeleteConfirm.title}"? This action cannot be undone.`}
+          onConfirm={confirmPermanentDelete}
+          onCancel={() => setPermanentDeleteConfirm(null)}
+        />
+      )}
+
+      {/* Recycle Bin Modal */}
+      {showRecycleBin && (
+        <RecycleBin
+          trash={trash}
+          onRestore={handleRestore}
+          onPermanentDelete={handlePermanentDelete}
+          onClearAll={handleClearTrash}
+          onClose={() => setShowRecycleBin(false)}
         />
       )}
     </div>
