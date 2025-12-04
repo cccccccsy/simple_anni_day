@@ -1,7 +1,7 @@
 import React from 'react';
 import './Header.css';
 
-function Header({ onAddClick }) {
+function Header({ onAddClick, onTrashClick, trashCount = 0 }) {
   return (
     <header className="header">
       <div className="header-container">
@@ -10,6 +10,17 @@ function Header({ onAddClick }) {
           <p className="header-subtitle">Never forget the special moments</p>
         </div>
         <div className="header-right">
+          <button
+            className="btn btn-secondary-outline"
+            onClick={onTrashClick}
+            title="Recycle Bin"
+          >
+            <span className="btn-icon">🗑️</span>
+            Recycle Bin
+            {trashCount > 0 && (
+              <span className="trash-badge">{trashCount}</span>
+            )}
+          </button>
           <button className="btn btn-primary" onClick={onAddClick}>
             <span className="btn-icon">+</span>
             Add Anniversary
