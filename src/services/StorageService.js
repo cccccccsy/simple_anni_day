@@ -7,7 +7,7 @@ import { validateAnniversary } from '../models/Anniversary';
  * for anniversary data persistence using browser localStorage.
  */
 
-const STORAGE_KEY = 'anniversary-app-data';
+const STORAGE_KEY = 'anniversaries';
 const TRASH_KEY = 'anniversary-app-trash';
 const STORAGE_VERSION = '1.0';
 
@@ -35,14 +35,20 @@ export function loadAnniversaries() {
 
     const parsed = JSON.parse(data);
 
+    // Support both raw array storage (used by useLocalStorage) and
+    // the older wrapped metadata format { anniversaries: [...], ... }
+    const storedAnniversaries = Array.isArray(parsed)
+      ? parsed
+      : parsed.anniversaries;
+
     // Validate data structure
-    if (!parsed.anniversaries || !Array.isArray(parsed.anniversaries)) {
+    if (!storedAnniversaries || !Array.isArray(storedAnniversaries)) {
       console.error('Invalid data structure in localStorage');
       return [];
     }
 
     // Validate each anniversary
-    const validAnniversaries = parsed.anniversaries.filter((anniversary) => {
+    const validAnniversaries = storedAnniversaries.filter((anniversary) => {
       try {
         validateAnniversary(anniversary);
         return true;
@@ -71,13 +77,7 @@ export function saveAnniversaries(anniversaries) {
       throw new Error('Anniversaries must be an array');
     }
 
-    const data = {
-      version: STORAGE_VERSION,
-      anniversaries,
-      lastUpdated: new Date().toISOString(),
-    };
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(anniversaries));
   } catch (error) {
     if (error.name === 'QuotaExceededError') {
       throw new Error(
