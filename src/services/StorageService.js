@@ -7,7 +7,8 @@ import { validateAnniversary } from '../models/Anniversary';
  * for anniversary data persistence using browser localStorage.
  */
 
-const STORAGE_KEY = 'anniversary-app-data';
+const STORAGE_KEY = 'anniversaries';
+const TRASH_KEY = 'anniversary-app-trash';
 const STORAGE_VERSION = '1.0';
 
 /**
@@ -34,14 +35,20 @@ export function loadAnniversaries() {
 
     const parsed = JSON.parse(data);
 
+    // Support both raw array storage (used by useLocalStorage) and
+    // the older wrapped metadata format { anniversaries: [...], ... }
+    const storedAnniversaries = Array.isArray(parsed)
+      ? parsed
+      : parsed.anniversaries;
+
     // Validate data structure
-    if (!parsed.anniversaries || !Array.isArray(parsed.anniversaries)) {
+    if (!storedAnniversaries || !Array.isArray(storedAnniversaries)) {
       console.error('Invalid data structure in localStorage');
       return [];
     }
 
     // Validate each anniversary
-    const validAnniversaries = parsed.anniversaries.filter((anniversary) => {
+    const validAnniversaries = storedAnniversaries.filter((anniversary) => {
       try {
         validateAnniversary(anniversary);
         return true;
@@ -70,13 +77,7 @@ export function saveAnniversaries(anniversaries) {
       throw new Error('Anniversaries must be an array');
     }
 
-    const data = {
-      version: STORAGE_VERSION,
-      anniversaries,
-      lastUpdated: new Date().toISOString(),
-    };
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(anniversaries));
   } catch (error) {
     if (error.name === 'QuotaExceededError') {
       throw new Error(
@@ -311,6 +312,163 @@ export function getStorageInfo() {
   }
 }
 
+/**
+ * Load all items from trash
+ *
+ * @returns {Anniversary[]} Array of deleted anniversary objects
+ */
+export function loadTrash() {
+  try {
+    const data = localStorage.getItem(TRASH_KEY);
+
+    if (!data) {
+      return [];
+    }
+
+    const parsed = JSON.parse(data);
+
+    if (!parsed.items || !Array.isArray(parsed.items)) {
+      console.error('Invalid trash data structure in localStorage');
+      return [];
+    }
+
+    return parsed.items;
+  } catch (error) {
+    console.error('Error loading trash from localStorage:', error);
+    return [];
+  }
+}
+
+/**
+ * Save trash items to localStorage
+ *
+ * @param {Anniversary[]} items - Array of deleted anniversary objects
+ */
+export function saveTrash(items) {
+  try {
+    if (!Array.isArray(items)) {
+      throw new Error('Trash items must be an array');
+    }
+
+    const data = {
+      version: STORAGE_VERSION,
+      items,
+      lastUpdated: new Date().toISOString(),
+    };
+
+    localStorage.setItem(TRASH_KEY, JSON.stringify(data));
+  } catch (error) {
+    throw new Error(`Error saving trash: ${error.message}`);
+  }
+}
+
+/**
+ * Move an anniversary to trash (soft delete)
+ *
+ * @param {string} id - Anniversary ID to move to trash
+ * @returns {Object} Object containing updated anniversaries and trash
+ */
+export function moveToTrash(id) {
+  try {
+    const anniversaries = loadAnniversaries();
+    const trash = loadTrash();
+
+    const anniversaryIndex = anniversaries.findIndex((a) => a.id === id);
+
+    if (anniversaryIndex === -1) {
+      throw new Error('Anniversary not found');
+    }
+
+    // Add deletedAt timestamp
+    const deletedAnniversary = {
+      ...anniversaries[anniversaryIndex],
+      deletedAt: new Date().toISOString(),
+    };
+
+    // Remove from anniversaries and add to trash
+    const updatedAnniversaries = anniversaries.filter((a) => a.id !== id);
+    const updatedTrash = [...trash, deletedAnniversary];
+
+    saveAnniversaries(updatedAnniversaries);
+    saveTrash(updatedTrash);
+
+    return {
+      anniversaries: updatedAnniversaries,
+      trash: updatedTrash,
+    };
+  } catch (error) {
+    throw new Error(`Error moving to trash: ${error.message}`);
+  }
+}
+
+/**
+ * Restore an anniversary from trash
+ *
+ * @param {string} id - Anniversary ID to restore
+ * @returns {Object} Object containing updated anniversaries and trash
+ */
+export function restoreFromTrash(id) {
+  try {
+    const anniversaries = loadAnniversaries();
+    const trash = loadTrash();
+
+    const trashIndex = trash.findIndex((a) => a.id === id);
+
+    if (trashIndex === -1) {
+      throw new Error('Anniversary not found in trash');
+    }
+
+    // Remove deletedAt timestamp
+    const { deletedAt, ...restoredAnniversary } = trash[trashIndex];
+
+    // Remove from trash and add back to anniversaries
+    const updatedTrash = trash.filter((a) => a.id !== id);
+    const updatedAnniversaries = [...anniversaries, restoredAnniversary];
+
+    saveAnniversaries(updatedAnniversaries);
+    saveTrash(updatedTrash);
+
+    return {
+      anniversaries: updatedAnniversaries,
+      trash: updatedTrash,
+    };
+  } catch (error) {
+    throw new Error(`Error restoring from trash: ${error.message}`);
+  }
+}
+
+/**
+ * Permanently delete an anniversary from trash
+ *
+ * @param {string} id - Anniversary ID to permanently delete
+ * @returns {Anniversary[]} Updated trash array
+ */
+export function permanentDelete(id) {
+  try {
+    const trash = loadTrash();
+    const updatedTrash = trash.filter((a) => a.id !== id);
+
+    saveTrash(updatedTrash);
+
+    return updatedTrash;
+  } catch (error) {
+    throw new Error(`Error permanently deleting: ${error.message}`);
+  }
+}
+
+/**
+ * Clear all items from trash
+ *
+ * @returns {void}
+ */
+export function clearTrash() {
+  try {
+    localStorage.removeItem(TRASH_KEY);
+  } catch (error) {
+    throw new Error(`Error clearing trash: ${error.message}`);
+  }
+}
+
 export default {
   loadAnniversaries,
   saveAnniversaries,
@@ -322,4 +480,11 @@ export default {
   importFromJSON,
   clearAll,
   getStorageInfo,
+  // Trash operations
+  loadTrash,
+  saveTrash,
+  moveToTrash,
+  restoreFromTrash,
+  permanentDelete,
+  clearTrash,
 };
