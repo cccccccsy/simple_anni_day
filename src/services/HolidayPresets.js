@@ -162,5 +162,5 @@ export default {
   HOLIDAY_PRESETS,
   getHolidayById,
   getHolidayDate,
-  getHolidaysByseason: getHolidaysByeason,
+  getHolidaysBySeason,
 };
