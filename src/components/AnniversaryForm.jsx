@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { createAnniversary, updateAnniversary } from '../models/Anniversary';
+import { createAnniversary, updateAnniversary, REMINDER_CYCLES } from '../models/Anniversary';
+import { HOLIDAY_PRESETS, getHolidayDate } from '../services/HolidayPresets';
 import './AnniversaryForm.css';
 
 function AnniversaryForm({ anniversary, onSave, onCancel }) {
@@ -13,9 +14,13 @@ function AnniversaryForm({ anniversary, onSave, onCancel }) {
     reminderSettings: {
       enabled: true,
       timings: [0, 1, 7],
-      timeOfDay: '09:00'
+      timeOfDay: '09:00',
+      cycle: REMINDER_CYCLES.YEARLY,
+      customMonths: null
     }
   });
+
+  const [selectedHoliday, setSelectedHoliday] = useState('');
 
   const [errors, setErrors] = useState({});
 
@@ -30,11 +35,33 @@ function AnniversaryForm({ anniversary, onSave, onCancel }) {
         reminderSettings: anniversary.reminderSettings || {
           enabled: true,
           timings: [0, 1, 7],
-          timeOfDay: '09:00'
+          timeOfDay: '09:00',
+          cycle: REMINDER_CYCLES.YEARLY,
+          customMonths: null
         }
       });
     }
   }, [anniversary]);
+
+  // Handle holiday selection
+  const handleHolidaySelect = (e) => {
+    const holidayId = e.target.value;
+    setSelectedHoliday(holidayId);
+
+    if (holidayId) {
+      const holiday = HOLIDAY_PRESETS.find(h => h.id === holidayId);
+      if (holiday) {
+        const holidayDate = getHolidayDate(holiday);
+        setFormData(prev => ({
+          ...prev,
+          title: holiday.name,
+          date: holidayDate,
+          category: holiday.category,
+          description: holiday.description
+        }));
+      }
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -53,6 +80,29 @@ function AnniversaryForm({ anniversary, onSave, onCancel }) {
         timings: prev.reminderSettings.timings.includes(timing)
           ? prev.reminderSettings.timings.filter(t => t !== timing)
           : [...prev.reminderSettings.timings, timing].sort((a, b) => a - b)
+      }
+    }));
+  };
+
+  const handleReminderCycleChange = (e) => {
+    const cycle = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      reminderSettings: {
+        ...prev.reminderSettings,
+        cycle,
+        customMonths: cycle === REMINDER_CYCLES.CUSTOM ? 1 : null
+      }
+    }));
+  };
+
+  const handleCustomMonthsChange = (e) => {
+    const value = parseInt(e.target.value) || 1;
+    setFormData(prev => ({
+      ...prev,
+      reminderSettings: {
+        ...prev.reminderSettings,
+        customMonths: Math.max(1, Math.min(60, value)) // Limit to 1-60 months
       }
     }));
   };
@@ -117,6 +167,28 @@ function AnniversaryForm({ anniversary, onSave, onCancel }) {
         <form onSubmit={handleSubmit} className="form-body">
           {errors.submit && (
             <div className="form-error-banner">{errors.submit}</div>
+          )}
+
+          {!isEdit && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="holiday-preset">
+                快速填充节日 (Quick Fill Holiday)
+              </label>
+              <select
+                id="holiday-preset"
+                className="form-input"
+                value={selectedHoliday}
+                onChange={handleHolidaySelect}
+              >
+                <option value="">-- 选择节日 / Select Holiday --</option>
+                {HOLIDAY_PRESETS.map(holiday => (
+                  <option key={holiday.id} value={holiday.id}>
+                    {holiday.emoji} {holiday.name}
+                  </option>
+                ))}
+              </select>
+              <small className="form-hint">选择节日后将自动填充标题、日期和描述</small>
+            </div>
           )}
 
           <div className="form-group">
@@ -187,7 +259,39 @@ function AnniversaryForm({ anniversary, onSave, onCancel }) {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Reminder Settings</label>
+            <label className="form-label">提醒周期 (Reminder Cycle)</label>
+            <select
+              className="form-input"
+              value={formData.reminderSettings.cycle}
+              onChange={handleReminderCycleChange}
+            >
+              <option value={REMINDER_CYCLES.ONCE}>仅一次 (Once Only)</option>
+              <option value={REMINDER_CYCLES.MONTHLY}>每月 (Monthly)</option>
+              <option value={REMINDER_CYCLES.HALF_YEARLY}>每半年 (Every 6 Months)</option>
+              <option value={REMINDER_CYCLES.YEARLY}>每年 (Yearly)</option>
+              <option value={REMINDER_CYCLES.CUSTOM}>自定义 (Custom)</option>
+            </select>
+            {formData.reminderSettings.cycle === REMINDER_CYCLES.CUSTOM && (
+              <div className="form-custom-months">
+                <label className="form-label" style={{ marginTop: '8px' }}>
+                  每隔几个月 (Months Interval)
+                </label>
+                <input
+                  type="number"
+                  className="form-input"
+                  min="1"
+                  max="60"
+                  value={formData.reminderSettings.customMonths || 1}
+                  onChange={handleCustomMonthsChange}
+                  placeholder="输入月数 (1-60)"
+                />
+                <small className="form-hint">每隔 {formData.reminderSettings.customMonths || 1} 个月提醒一次</small>
+              </div>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">提前提醒 (Remind In Advance)</label>
             <div className="form-checkboxes">
               <label className="form-checkbox">
                 <input
@@ -195,7 +299,7 @@ function AnniversaryForm({ anniversary, onSave, onCancel }) {
                   checked={formData.reminderSettings.timings.includes(0)}
                   onChange={() => handleReminderChange(0)}
                 />
-                <span>On the day</span>
+                <span>当天 (On the day)</span>
               </label>
               <label className="form-checkbox">
                 <input
@@ -203,7 +307,7 @@ function AnniversaryForm({ anniversary, onSave, onCancel }) {
                   checked={formData.reminderSettings.timings.includes(1)}
                   onChange={() => handleReminderChange(1)}
                 />
-                <span>1 day before</span>
+                <span>提前1天 (1 day before)</span>
               </label>
               <label className="form-checkbox">
                 <input
@@ -211,7 +315,7 @@ function AnniversaryForm({ anniversary, onSave, onCancel }) {
                   checked={formData.reminderSettings.timings.includes(7)}
                   onChange={() => handleReminderChange(7)}
                 />
-                <span>1 week before</span>
+                <span>提前7天 (1 week before)</span>
               </label>
             </div>
           </div>

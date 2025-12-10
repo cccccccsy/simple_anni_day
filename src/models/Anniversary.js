@@ -23,7 +23,20 @@ import { v4 as uuidv4 } from 'uuid';
  * @property {boolean} enabled - Whether reminders are enabled
  * @property {number[]} timings - Array of days before anniversary to remind (e.g., [1, 7, 30])
  * @property {string} timeOfDay - Time to send reminder in HH:mm format (e.g., "09:00")
+ * @property {('once'|'monthly'|'half-yearly'|'yearly'|'custom')} cycle - Reminder cycle type
+ * @property {number} [customMonths] - Custom cycle in months (only used when cycle is 'custom')
  */
+
+/**
+ * Reminder cycle options
+ */
+export const REMINDER_CYCLES = {
+  ONCE: 'once',           // One-time reminder only on the anniversary
+  MONTHLY: 'monthly',     // Remind every month
+  HALF_YEARLY: 'half-yearly', // Remind every 6 months
+  YEARLY: 'yearly',       // Remind every year
+  CUSTOM: 'custom',       // Custom interval in months
+};
 
 /**
  * Default reminder settings
@@ -32,6 +45,8 @@ const DEFAULT_REMINDER_SETTINGS = {
   enabled: true,
   timings: [0, 1, 7], // Today, 1 day before, 7 days before
   timeOfDay: '09:00',
+  cycle: REMINDER_CYCLES.YEARLY, // Default to yearly reminders
+  customMonths: null,
 };
 
 /**
@@ -167,4 +182,5 @@ export default {
   updateAnniversary,
   validateAnniversary,
   ANNIVERSARY_CATEGORIES,
+  REMINDER_CYCLES,
 };
