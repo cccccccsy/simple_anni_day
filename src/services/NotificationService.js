@@ -1,4 +1,10 @@
-import { shouldNotify as shouldNotifyDate, formatCountdown, calculateDaysUntil } from './DateService';
+import {
+  shouldNotify as shouldNotifyDate,
+  formatCountdown,
+  calculateDaysUntil,
+  getNextReminderDate,
+} from './DateService';
+import { startOfDay } from 'date-fns';
 
 /**
  * NotificationService - Browser notification management
@@ -121,7 +127,10 @@ export function scheduleNotification(anniversary) {
     return null;
   }
 
-  const daysUntil = calculateDaysUntil(anniversary.date);
+  const nextReminderDate = getNextReminderDate(anniversary, now);
+  const daysUntil = nextReminderDate
+    ? Math.max(0, Math.round((startOfDay(nextReminderDate) - startOfDay(now)) / (1000 * 60 * 60 * 24)))
+    : calculateDaysUntil(anniversary.date);
   const countdown = formatCountdown(daysUntil);
 
   let title;
@@ -238,7 +247,15 @@ export function getUpcomingNotifications(anniversary) {
     return [];
   }
 
-  const daysUntil = calculateDaysUntil(anniversary.date);
+  const nextReminderDate = getNextReminderDate(anniversary);
+  if (!nextReminderDate) {
+    return [];
+  }
+
+  const daysUntil = Math.max(
+    0,
+    Math.round((startOfDay(nextReminderDate) - startOfDay(new Date())) / (1000 * 60 * 60 * 24))
+  );
   const timings = anniversary.reminderSettings.timings || [];
   const timeOfDay = anniversary.reminderSettings.timeOfDay || '09:00';
 
