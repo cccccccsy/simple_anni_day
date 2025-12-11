@@ -7,7 +7,9 @@ import {
   addYears,
   isBefore,
   isAfter,
+  addMonths,
 } from 'date-fns';
+import { REMINDER_CYCLES } from '../models/Anniversary';
 
 /**
  * DateService - Date calculation and formatting utilities
@@ -120,6 +122,68 @@ export function isApproaching(date, threshold = 7) {
  * @param {Date} [now] - Current date/time (defaults to now)
  * @returns {boolean} True if notification should be triggered
  */
+function getCycleIntervalMonths(cycle, customMonths) {
+  switch (cycle) {
+    case REMINDER_CYCLES.MONTHLY:
+      return 1;
+    case REMINDER_CYCLES.HALF_YEARLY:
+      return 6;
+    case REMINDER_CYCLES.YEARLY:
+      return 12;
+    case REMINDER_CYCLES.CUSTOM:
+      return Math.min(Math.max(Number(customMonths) || 0, 1), 60);
+    default:
+      return null;
+  }
+}
+
+export function getNextReminderDate(anniversary, now = new Date()) {
+  try {
+    const { reminderSettings } = anniversary;
+    if (!reminderSettings || !reminderSettings.enabled) {
+      return null;
+    }
+
+    const cycle = reminderSettings.cycle || REMINDER_CYCLES.YEARLY;
+    const targetDate =
+      typeof anniversary.date === 'string'
+        ? parseISO(anniversary.date)
+        : anniversary.date;
+    const today = startOfDay(now);
+
+    if (!targetDate) {
+      return null;
+    }
+
+    // One-time reminders only fire on the original date
+    if (cycle === REMINDER_CYCLES.ONCE) {
+      const oneTimeDate = startOfDay(targetDate);
+      if (isBefore(oneTimeDate, today)) {
+        return null;
+      }
+      return oneTimeDate;
+    }
+
+    const intervalMonths = getCycleIntervalMonths(
+      cycle,
+      reminderSettings.customMonths
+    );
+
+    // Fallback to yearly if interval is invalid
+    const safeInterval = intervalMonths || 12;
+
+    let nextDate = startOfDay(targetDate);
+    while (isBefore(nextDate, today)) {
+      nextDate = addMonths(nextDate, safeInterval);
+    }
+
+    return nextDate;
+  } catch (error) {
+    console.error('Error getting next reminder date:', error);
+    return null;
+  }
+}
+
 export function shouldNotify(anniversary, now = new Date()) {
   try {
     const { reminderSettings } = anniversary;
@@ -144,8 +208,14 @@ export function shouldNotify(anniversary, now = new Date()) {
       return false;
     }
 
-    // Check if days until anniversary matches one of the timings
-    const daysUntil = calculateDaysUntil(anniversary.date);
+    // Determine the next reminder date based on the configured cycle
+    const nextReminderDate = getNextReminderDate(anniversary, now);
+
+    if (!nextReminderDate) {
+      return false;
+    }
+
+    const daysUntil = differenceInDays(startOfDay(nextReminderDate), startOfDay(now));
     const timings = reminderSettings.timings || [0];
 
     return timings.includes(daysUntil);
@@ -262,5 +332,6 @@ export default {
   formatDate,
   calculateYearsSince,
   getNextOccurrence,
+  getNextReminderDate,
   sortByDaysUntil,
 };
