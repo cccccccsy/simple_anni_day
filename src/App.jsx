@@ -4,6 +4,7 @@ import AnniversaryList from './components/AnniversaryList';
 import AnniversaryForm from './components/AnniversaryForm';
 import ConfirmDialog from './components/ConfirmDialog';
 import RecycleBin from './components/RecycleBin';
+import TagStats from './components/TagStats';
 import useLocalStorage from './hooks/useLocalStorage';
 import useNotifications from './hooks/useNotifications';
 import {
@@ -196,6 +197,8 @@ function App() {
           onDelete={handleDelete}
           onAddClick={handleAddClick}
         />
+
+        <TagStats anniversaries={anniversaries} trashCount={trash.length} />
       </main>
 
       {/* Form Modal */}
